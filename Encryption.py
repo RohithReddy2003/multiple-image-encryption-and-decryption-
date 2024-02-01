@@ -3,11 +3,12 @@ import hashlib
 import numpy as np
 import math
 import streamlit as st
+import os
 
-def encrypt():
-    def generate_sha256_blocks(image_path):
+def encrypting(image,file_path):
+    def generate_sha256_blocks(image):
         # Read the grayscale image using cv2.imread
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        #image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
         # Convert the image to bytes
         image_data = cv2.imencode('.png', image)[1].tobytes()
@@ -26,8 +27,8 @@ def encrypt():
         return blocks,hash_binary
 
     # Replace 'path_to_your_image.jpg' with the actual path to your grayscale image file
-    image_path = r"C:\Users\ROHITH\Downloads\result_image.png"
-    sha256_blocks,hash_binary = generate_sha256_blocks(image_path)
+    image=image
+    sha256_blocks,hash_binary = generate_sha256_blocks(image)
 
     # External key c1-c6 
     c1 = 0.611328125  
@@ -109,8 +110,6 @@ def encrypt():
     # Display the first few values of chaotic sequences Y and Z
     #print(f'Y: {Y}')
     #print(f'Z: {Z}')
-
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
     # Function to get 3D bit planes from the image
     def get_3d_bit_planes(image):
@@ -345,11 +344,25 @@ def encrypt():
 
     Encrypted_image = reconstruct_image(cube_3D)
 
-    save_path = r"C:\Users\ROHITH\Downloads\encrypted_image.png"
-    cv2.imwrite(save_path, Encrypted_image)
-    st.image(Encrypted_image, caption='Encrypted Image', use_column_width=True)
+    #st.image(Encrypted_image, caption='Encrypted Image', use_column_width=True)
     str1 = ''.join(map(str, Li))
     n=int(str1)
     hex_representation = hex(n)
-    st.write("The Encoded rule for encryption :",hex_representation)
-    st.write("The hash key :",hash_binary)
+    hex_hash_binary= hash_binary.hex()
+    with open(file_path, 'a') as file:
+            file.write(hex_representation+'\n')
+            file.write(hex_hash_binary+'\n')
+    return Encrypted_image
+          
+def encrypt(file_path):
+    image_path = r"C:\Users\ROHITH\Downloads\result_image.png"
+    color_image  = cv2.imread(image_path)
+    encrypted_channels = []
+    for i in range(3):
+        encrypted_channel = encrypting(color_image[:, :, i],file_path)
+        encrypted_channels.append(encrypted_channel)
+
+    Encrypted_image = cv2.merge(encrypted_channels)    
+    save_path = r"C:\Users\ROHITH\Downloads\encrypted_image.png"
+    cv2.imwrite(save_path, Encrypted_image)
+    st.image(Encrypted_image, caption='Encrypted Image', use_column_width=True)
