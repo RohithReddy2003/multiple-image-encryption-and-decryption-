@@ -4,8 +4,9 @@ import numpy as np
 import streamlit as st
 import math
 import ast
+import os
 
-def inverse(key, Encode, uploaded_file):
+def inverse(key, Encode, cipher_image):
     m = int(Encode, 16)
     str_num=str(m)
     if len(str_num)!=128:
@@ -15,9 +16,6 @@ def inverse(key, Encode, uploaded_file):
     N=(512*512*8)
     Original_image_shape=(512,512,8)
 
-    #Li=0x54a61068adeef726a5d992407077a6093bca678dff46add7c753bb292912dd87a312aff05c1cf39521aa47d3f343b9f4fe99ca6bb8
-    
-    #hash_binary= b'/\xcft\x96V6(\xd9\xed\x80\xdc\x9f_\xc6Z\rV\xaa\x17]\x1d\x98fD\x06;\xd5[\xd0\x02\x04S'
     hash_binary = ast.literal_eval(key)
     sha256_blocks = [format(byte, '08b') for byte in hash_binary]
 
@@ -92,9 +90,6 @@ def inverse(key, Encode, uploaded_file):
     # Take the first u2/8 values of Z' to get Z
     Z = Z_prime[:(u**2)//8]
 
-    image_data = uploaded_file.getvalue()
-    img_array = np.frombuffer(image_data, np.uint8)
-    cipher_image = cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
 
     def decompose_image(Encrypted_image):
         height, width = Encrypted_image.shape
@@ -215,6 +210,7 @@ def inverse(key, Encode, uploaded_file):
     R5 = np.zeros((u, u, u), dtype=np.uint8)
 
     def dna_to_binary(dna_sequence,n):
+        dna_mapping = {'A': '00', 'C': '01', 'G': '10', 'T': '11'}
         if n==0:
             dna_mapping= {'A': '00', 'C': '01', 'G': '10', 'T': '11'}
         elif n==1:
@@ -298,13 +294,45 @@ def inverse(key, Encode, uploaded_file):
         return reconstructed_image
 
     Decrypted_image = decrypt_image(decrypt_planes)
-    st.image(Decrypted_image, caption='Decrypted Image', use_column_width=True)
+    return Decrypted_image
 
 def decrypt():
     uploaded_file = st.file_uploader("Choose encrypted image file", type=["jpg", "jpeg", "png"])
-    hash_binary = st.text_input("Enter HashKey of the uploaded Encrypted Image")
-    Encode=st.text_input("Enter Encoded rule of the uploaded Encrypted Image")
+    file_name = st.text_input("Enter key : ")
+    folder_path=r"C:\Users\ROHITH\Downloads\rgb testing\keyfilestore"
     decrypt=st.button("Decrypt the image", key="submit")
+    if decrypt and (uploaded_file is not None):
+        
+        image_data = uploaded_file.getvalue()
+        img_array = np.frombuffer(image_data, np.uint8)
+        cipher_image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        Encode=[]
+        hash_binary=[]
+        file_path = os.path.join(folder_path, file_name)
+        # Open the file in read mode
+        try:
+            with open(file_path, 'r') as file:
+                # Iterate through each line in the file
+                for line_number, line in enumerate(file, start=1):
+                    #print(f"Processing line {line_number}: {line.strip()}")
+                    if(line_number%2==1):
+                        n=line.strip()
+                        Encode.append(n)
+                    else:
+                        hash_binary.append(bytes.fromhex(line.strip()))
+                    # You can add more code here to process each line
+        except FileNotFoundError:
+            st.image(uploaded_file)
+            return
+        
 
-    if decrypt and hash_binary and Encode:
-        inverse(str(hash_binary), str(Encode), uploaded_file)
+        decrypted_channels = []
+        for i in range(3):
+            decrypted_channel = inverse(str(hash_binary[i]), str(Encode[i])[2:], cipher_image[:, :, i])
+            decrypted_channels.append(decrypted_channel)
+
+        Decrypted_image = cv2.merge(decrypted_channels) 
+        rgb_image = cv2.cvtColor(Decrypted_image, cv2.COLOR_BGR2RGB)
+        #cv2.imshow("Decrypt",Decrypted_image)
+        #cv2.waitKey(0)
+        st.image(rgb_image, caption='Decrypted Image', use_column_width=True)
